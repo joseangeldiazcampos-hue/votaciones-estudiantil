@@ -15,6 +15,9 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// Trust proxy (needed for Render.com reverse proxy)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -33,7 +36,8 @@ app.use(session({
   cookie: {
     maxAge: 30 * 60 * 1000, // 30 minutes
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production'
+    secure: 'auto',
+    sameSite: 'lax'
   }
 }));
 
