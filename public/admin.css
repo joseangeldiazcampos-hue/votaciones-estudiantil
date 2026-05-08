@@ -179,6 +179,55 @@ body.role-developer .dev-only-cell { display:table-cell; }
 /* Edit Form Grid */
 .edit-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 
+/* Winner Reveal Modal */
+.reveal-modal {
+  text-align: center;
+  padding: 40px !important;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 50px rgba(139, 92, 246, 0.2);
+}
+.reveal-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 30px;
+  background: linear-gradient(135deg, #8b5cf6, #d946ef);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.reveal-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+.reveal-step {
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  animation: revealFadeIn 0.8s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+.reveal-step.winner {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
+}
+.reveal-step-votes {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.reveal-step-name {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+@keyframes revealFadeIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width:768px) {
   .dashboard-content { padding:90px 16px 24px; }
   .charts-row, .settings-grid { grid-template-columns:1fr; }

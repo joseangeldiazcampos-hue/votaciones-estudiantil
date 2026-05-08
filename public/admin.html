@@ -146,6 +146,14 @@
             <button class="btn btn-primary btn-sm" onclick="saveConfig()">Guardar Configuración</button>
           </div>
           <div class="setting-card">
+            <h3>Resultados Finales</h3>
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:16px;">Muestra los resultados con un efecto de suspenso para anuncios oficiales.</p>
+            <button class="btn btn-primary btn-sm btn-glow" style="background: linear-gradient(135deg, #8b5cf6, #d946ef);" onclick="startWinnerReveal()">
+              ✨ Revelar Ganador con Suspenso
+            </button>
+          </div>
+
+          <div class="setting-card">
             <h3>Control de Votación</h3>
             <div class="toggle-group">
               <label>Votación Activa</label>
@@ -177,6 +185,25 @@
       </div>
     </div>
   </div>
+
+  <!-- Winner Reveal Modal -->
+  <div class="modal-overlay hidden" id="winnerRevealModal">
+    <div class="modal reveal-modal" style="max-width:600px; background: #0f172a;">
+      <div class="reveal-content" id="revealContent">
+        <h2 class="reveal-title">Anunciando Resultados...</h2>
+        <div id="revealSteps" class="reveal-steps">
+          <!-- Reveal steps will appear here -->
+        </div>
+      </div>
+      <div class="modal-footer" id="revealFooter" style="display:none">
+        <button class="btn btn-primary" onclick="closeWinnerReveal()">Cerrar Anuncio</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p class="credits">Hecho por <span class="author-name">José Ángel Díaz Campos</span></p>
+  </footer>
 
   <script src="admin.js"></script>
 </body>

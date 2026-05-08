@@ -84,9 +84,28 @@ function renderPieChart(data) {
     type: 'doughnut',
     data: {
       labels: data.map(d => d.voto_nombre),
-      datasets: [{ data: data.map(d => parseInt(d.total)), backgroundColor: colors.slice(0, data.length), borderWidth: 0, borderRadius: 4 }]
+      datasets: [{
+        data: data.map(d => parseInt(d.total)),
+        backgroundColor: colors.slice(0, data.length),
+        borderWidth: 0,
+        borderRadius: 8,
+        hoverOffset: 15
+      }]
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16, font: { family: 'Inter' } } } }, cutout: '65%' }
+    options: {
+      responsive: true,
+      animation: {
+        duration: 2000,
+        easing: 'easeOutQuart'
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#94a3b8', padding: 20, font: { family: 'Inter', size: 12 } }
+        }
+      },
+      cutout: '70%'
+    }
   });
 }
 
@@ -98,16 +117,24 @@ function renderBarChart(data) {
     data: {
       labels: data.map(d => d.seccion || 'Sin sección'),
       datasets: [
-        { label: 'Votaron', data: data.map(d => parseInt(d.voted)), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 6 },
-        { label: 'No votaron', data: data.map(d => parseInt(d.total_students) - parseInt(d.voted)), backgroundColor: 'rgba(100,116,139,0.3)', borderRadius: 6 }
+        { label: 'Votaron', data: data.map(d => parseInt(d.voted)), backgroundColor: 'rgba(99, 102, 241, 0.8)', borderRadius: 8 },
+        { label: 'No votaron', data: data.map(d => parseInt(d.total_students) - parseInt(d.voted)), backgroundColor: 'rgba(148, 163, 184, 0.1)', borderRadius: 8 }
       ]
     },
     options: {
-      responsive: true, scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { family: 'Inter' } } },
-        y: { stacked: true, grid: { color: 'rgba(148,163,184,0.05)' }, ticks: { color: '#94a3b8' } }
+      responsive: true,
+      animation: {
+        duration: 1500,
+        easing: 'easeInOutBack',
+        delay: (context) => context.dataIndex * 50
       },
-      plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Inter' } } } }
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { family: 'Inter' } } },
+        y: { stacked: true, grid: { color: 'rgba(148, 163, 184, 0.05)' }, ticks: { color: '#94a3b8' } }
+      },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { family: 'Inter' } } }
+      }
     }
   });
 }
@@ -366,6 +393,45 @@ async function executeConfirmAction() {
     await confirmCallback();
   }
   closeConfirmAction();
+}
+
+async function startWinnerReveal() {
+  try {
+    const res = await fetch('/api/admin/stats');
+    const data = await res.json();
+    const results = data.votesByCandidate
+      .map(v => ({ name: v.voto_nombre, votes: parseInt(v.total) }))
+      .sort((a, b) => a.votes - b.votes); // Sort ascending to show winner last
+
+    if (results.length === 0) return alert('No hay votos registrados todavía.');
+
+    document.getElementById('revealSteps').innerHTML = '';
+    document.getElementById('revealFooter').style.display = 'none';
+    document.getElementById('winnerRevealModal').classList.remove('hidden');
+
+    for (let i = 0; i < results.length; i++) {
+      const isWinner = i === results.length - 1;
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Suspense delay
+
+      const step = document.createElement('div');
+      step.className = `reveal-step ${isWinner ? 'winner' : ''}`;
+      step.innerHTML = `
+        <div class="reveal-step-name">${isWinner ? '🏆 ¡EL GANADOR ES!' : 'Siguiente resultado...'}</div>
+        <div class="reveal-step-votes">${results[i].votes} VOTOS</div>
+        <div class="reveal-step-name">${results[i].name}</div>
+      `;
+      document.getElementById('revealSteps').appendChild(step);
+    }
+
+    document.getElementById('revealFooter').style.display = 'block';
+  } catch (e) {
+    console.error(e);
+    alert('Error al obtener los resultados.');
+  }
+}
+
+function closeWinnerReveal() {
+  document.getElementById('winnerRevealModal').classList.add('hidden');
 }
 
 function showLoginMsg(text, type) {
