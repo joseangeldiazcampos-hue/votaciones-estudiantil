@@ -122,19 +122,24 @@ function renderVotesTable(votes) {
   </tr>`).join('');
 }
 
-async function deleteVote(id) {
-  if (!confirm('¿Eliminar este voto?')) return;
-  try {
-    const res = await fetch(`/api/admin/votes/${id}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok) {
-      alert('Error: ' + (data.error || 'No autorizado. ¿Inició sesión como Desarrollador?'));
-      return;
+function deleteVote(id) {
+  showConfirmAction(
+    '🗑️ Eliminar Voto',
+    '¿Está seguro de que desea eliminar este voto? Esta acción no se puede deshacer.',
+    async () => {
+      try {
+        const res = await fetch(`/api/admin/votes/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) {
+          alert('Error: ' + (data.error || 'No autorizado.'));
+          return;
+        }
+        loadStats();
+      } catch (e) {
+        alert('Error de conexión: ' + e.message);
+      }
     }
-    loadStats();
-  } catch (e) {
-    alert('Error de conexión: ' + e.message);
-  }
+  );
 }
 
 // ===== STUDENTS =====
@@ -275,12 +280,6 @@ async function saveCandidate() {
   loadAdminCandidates();
 }
 
-async function deleteCandidate(id) {
-  if (!confirm('¿Eliminar este candidato?')) return;
-  await fetch(`/api/admin/candidates/${id}`, { method: 'DELETE' });
-  loadAdminCandidates();
-}
-
 // ===== SETTINGS =====
 async function loadSettings() {
   const res = await fetch('/api/config');
@@ -314,21 +313,59 @@ async function toggleVoting() {
   });
 }
 
-async function resetAllVotes() {
-  if (!confirm('⚠️ ¿Está SEGURO de que desea eliminar TODOS los votos? Esta acción NO se puede deshacer.')) return;
-  if (!confirm('ÚLTIMA CONFIRMACIÓN: ¿Realmente desea borrar todos los votos?')) return;
-  try {
-    const res = await fetch('/api/admin/reset-votes', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) {
-      alert('Error: ' + (data.error || 'No autorizado. ¿Inició sesión como Desarrollador?'));
-      return;
+function resetAllVotes() {
+  showConfirmAction(
+    '⚠️ Reiniciar TODOS los Votos',
+    'Esta acción eliminará TODOS los votos registrados. No se puede deshacer. ¿Está completamente seguro?',
+    async () => {
+      try {
+        const res = await fetch('/api/admin/reset-votes', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) {
+          alert('Error: ' + (data.error || 'No autorizado.'));
+          return;
+        }
+        alert('✅ Todos los votos han sido eliminados.');
+        loadStats();
+      } catch (e) {
+        alert('Error de conexión: ' + e.message);
+      }
     }
-    alert('Todos los votos han sido eliminados.');
-    loadStats();
-  } catch (e) {
-    alert('Error de conexión: ' + e.message);
+  );
+}
+
+function deleteCandidate(id) {
+  showConfirmAction(
+    '🗑️ Eliminar Candidato',
+    '¿Está seguro de que desea eliminar este candidato?',
+    async () => {
+      await fetch(`/api/admin/candidates/${id}`, { method: 'DELETE' });
+      loadAdminCandidates();
+    }
+  );
+}
+
+// ===== CUSTOM CONFIRM MODAL =====
+let confirmCallback = null;
+
+function showConfirmAction(title, message, onConfirm) {
+  document.getElementById('confirmActionTitle').textContent = title;
+  document.getElementById('confirmActionMsg').textContent = message;
+  confirmCallback = onConfirm;
+  document.getElementById('confirmActionBtn').onclick = executeConfirmAction;
+  document.getElementById('confirmActionModal').classList.remove('hidden');
+}
+
+function closeConfirmAction() {
+  document.getElementById('confirmActionModal').classList.add('hidden');
+  confirmCallback = null;
+}
+
+async function executeConfirmAction() {
+  if (confirmCallback) {
+    await confirmCallback();
   }
+  closeConfirmAction();
 }
 
 function showLoginMsg(text, type) {
