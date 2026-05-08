@@ -31,12 +31,12 @@ app.use(session({
     createTableIfMissing: true
   }),
   secret: process.env.SESSION_SECRET || 'votaciones-secret-key-2026',
-  resave: false,
-  saveUninitialized: false,
+  resave: true,
+  saveUninitialized: true,
   cookie: {
     maxAge: 30 * 60 * 1000, // 30 minutes
     httpOnly: true,
-    secure: 'auto',
+    secure: false,
     sameSite: 'lax'
   }
 }));
@@ -318,10 +318,16 @@ app.post('/api/verify-cedula', async (req, res) => {
     req.session.nombre = student.nombre;
     req.session.seccion = student.seccion;
 
-    res.json({
-      success: true,
-      nombre: student.nombre,
-      seccion: student.seccion
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ success: false, message: 'Error del servidor.' });
+      }
+      res.json({
+        success: true,
+        nombre: student.nombre,
+        seccion: student.seccion
+      });
     });
   } catch (err) {
     console.error(err);
@@ -392,7 +398,13 @@ app.post('/api/admin/login', async (req, res) => {
 
     req.session.adminUser = username;
     req.session.adminRole = user.role;
-    res.json({ success: true, role: user.role, username });
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ success: false, message: 'Error del servidor.' });
+      }
+      res.json({ success: true, role: user.role, username });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Error del servidor.' });
