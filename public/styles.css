@@ -61,6 +61,7 @@ body {
 .nav-brand { display: flex; align-items: center; gap: 12px; }
 .nav-logo { width: 36px; height: 36px; border-radius: 8px; }
 .nav-title { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.02em; }
+.nav-buttons { display: flex; gap: 10px; align-items: center; }
 .nav-admin-btn {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 18px; border-radius: var(--radius-sm);
@@ -70,6 +71,11 @@ body {
   transition: var(--transition);
 }
 .nav-admin-btn:hover { background: rgba(99, 102, 241, 0.2); border-color: rgba(99,102,241,0.4); }
+.nav-dev-btn {
+  background: rgba(16, 185, 129, 0.1); color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.nav-dev-btn:hover { background: rgba(16, 185, 129, 0.2); border-color: rgba(16,185,129,0.4); }
 
 /* ===== MAIN CONTENT ===== */
 .main-content {
