@@ -200,11 +200,11 @@ async function loadAdminCandidates() {
   const res = await fetch('/api/admin/candidates');
   const candidates = await res.json();
   const grid = document.getElementById('candidatesManageGrid');
-  grid.innerHTML = candidates.map(c => {
+  grid.innerHTML = candidates.map((c, index) => {
     const avatarContent = c.imagen_url
       ? `<img src="${c.imagen_url}" alt="${c.nombre}">`
       : c.iniciales;
-    return `<div class="candidate-manage-card">
+    return `<div class="candidate-manage-card" style="animation: cardReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: ${index * 0.1}s; opacity: 0;">
       <div class="candidate-manage-top">
         <div class="candidate-manage-avatar" style="background:${c.color}">${avatarContent}</div>
         <div class="candidate-manage-info">

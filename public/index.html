@@ -102,18 +102,16 @@
 
     <!-- Step 3: Success -->
     <div class="card card-success hidden" id="stepSuccess">
-      <div class="card-glow card-glow-success"></div>
       <div class="card-inner">
-        <div class="success-animation">
-      <div class="card-glow"></div>
-      <div class="card-inner">
-        <div class="success-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div class="logo-container">
+          <div class="success-glow-ring">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="success-check"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
         </div>
         <h1 class="card-title">¡Voto Registrado!</h1>
-        <p class="card-subtitle">Gracias por participar en el proceso democrático estudiantil. Su voto ha sido procesado con éxito.</p>
-        <button class="btn btn-primary btn-glow" onclick="resetVoting()">
-          <span class="btn-text">Finalizar</span>
+        <p class="card-subtitle">Tu participación fortalece nuestra democracia estudiantil. El proceso ha finalizado correctamente.</p>
+        <button class="btn btn-primary btn-glow" onclick="resetVoting()" style="width: 100%;">
+          <span class="btn-text">Finalizar Sesión</span>
         </button>
       </div>
     </div>

@@ -73,12 +73,13 @@ function renderCandidates() {
   const grid = document.getElementById('candidatesGrid');
   grid.innerHTML = '';
 
-  candidates.forEach(c => {
+  candidates.forEach((c, index) => {
     const card = document.createElement('div');
     card.className = 'candidate-card';
+    card.style.animationDelay = `${index * 0.1}s`; // Staggered entry
     card.onclick = () => selectCandidate(c);
     const avatarContent = c.imagen_url
-      ? `<img src="${c.imagen_url}" alt="${c.nombre}" style="width:100%;height:100%;object-fit:cover;border-radius:18px">`
+      ? `<img src="${c.imagen_url}" alt="${c.nombre}" style="width:100%;height:100%;object-fit:cover;border-radius:22px">`
       : c.iniciales;
     card.innerHTML = `
       <div class="candidate-avatar" style="background:${c.color}">${avatarContent}</div>
