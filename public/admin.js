@@ -124,8 +124,17 @@ function renderVotesTable(votes) {
 
 async function deleteVote(id) {
   if (!confirm('¿Eliminar este voto?')) return;
-  await fetch(`/api/admin/votes/${id}`, { method: 'DELETE' });
-  loadStats();
+  try {
+    const res = await fetch(`/api/admin/votes/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert('Error: ' + (data.error || 'No autorizado. ¿Inició sesión como Desarrollador?'));
+      return;
+    }
+    loadStats();
+  } catch (e) {
+    alert('Error de conexión: ' + e.message);
+  }
 }
 
 // ===== STUDENTS =====
@@ -308,9 +317,18 @@ async function toggleVoting() {
 async function resetAllVotes() {
   if (!confirm('⚠️ ¿Está SEGURO de que desea eliminar TODOS los votos? Esta acción NO se puede deshacer.')) return;
   if (!confirm('ÚLTIMA CONFIRMACIÓN: ¿Realmente desea borrar todos los votos?')) return;
-  await fetch('/api/admin/reset-votes', { method: 'POST' });
-  alert('Todos los votos han sido eliminados.');
-  loadStats();
+  try {
+    const res = await fetch('/api/admin/reset-votes', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert('Error: ' + (data.error || 'No autorizado. ¿Inició sesión como Desarrollador?'));
+      return;
+    }
+    alert('Todos los votos han sido eliminados.');
+    loadStats();
+  } catch (e) {
+    alert('Error de conexión: ' + e.message);
+  }
 }
 
 function showLoginMsg(text, type) {
