@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Administración - Votaciones</title>
+  <link rel="icon" type="image/png" href="https://i.imgur.com/IGF1faP.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="bg-animation"><div class="bg-orb bg-orb-1"></div><div class="bg-orb bg-orb-2"></div><div class="bg-orb bg-orb-3"></div></div>
+
+  <!-- Login Screen -->
+  <div class="admin-login" id="loginScreen">
+    <div class="card">
+      <div class="card-glow"></div>
+      <div class="card-inner">
+        <div class="logo-container"><img src="https://i.imgur.com/IGF1faP.png" alt="Escudo" class="institution-logo"></div>
+        <h1 class="card-title">Panel de Control</h1>
+        <p class="card-subtitle">Ingrese sus credenciales para acceder</p>
+        <div class="input-group">
+          <div class="input-wrapper">
+            <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="loginUser" placeholder="Usuario" class="admin-input">
+          </div>
+          <div class="input-wrapper">
+            <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="loginPass" placeholder="Contraseña" class="admin-input">
+          </div>
+          <button class="btn btn-primary btn-glow" id="btnLogin" onclick="adminLogin()">
+            <span class="btn-text">Iniciar Sesión</span>
+            <span class="btn-loader"><svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70"/></svg></span>
+          </button>
+        </div>
+        <div class="message-box" id="loginMessage" style="display:none"><span class="message-icon"></span><span class="message-text"></span></div>
+        <a href="/" class="btn btn-outline btn-back" style="margin-top:16px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Volver al Inicio
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="dashboard hidden" id="dashboard">
+    <nav class="navbar">
+      <div class="nav-brand">
+        <img src="https://i.imgur.com/IGF1faP.png" alt="Escudo" class="nav-logo">
+        <span class="nav-title">Panel de Administración</span>
+        <span class="role-badge" id="roleBadge">Admin</span>
+      </div>
+      <div class="nav-actions">
+        <a href="/" class="nav-admin-btn">🏠 Inicio</a>
+        <button class="btn btn-outline btn-sm" onclick="adminLogout()" id="btnLogout">Cerrar Sesión</button>
+      </div>
+    </nav>
+
+    <div class="dashboard-content">
+      <!-- Tabs -->
+      <div class="tabs" id="tabsContainer">
+        <button class="tab active" onclick="switchTab('overview')" id="tabOverview">📊 Resultados</button>
+        <button class="tab" onclick="switchTab('students')" id="tabStudents">👥 Estudiantes</button>
+        <button class="tab dev-only hidden" onclick="switchTab('candidates')" id="tabCandidates">🗳️ Candidatos</button>
+        <button class="tab dev-only hidden" onclick="switchTab('settings')" id="tabSettings">⚙️ Configuración</button>
+      </div>
+
+      <!-- Overview Tab -->
+      <div class="tab-content" id="contentOverview">
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Votos</div></div>
+          <div class="stat-card"><div class="stat-value" id="statStudents">0</div><div class="stat-label">Estudiantes</div></div>
+          <div class="stat-card"><div class="stat-value" id="statParticipation">0%</div><div class="stat-label">Participación</div></div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-card"><h3>Distribución de Votos</h3><canvas id="pieChart"></canvas></div>
+          <div class="chart-card"><h3>Participación por Sección</h3><canvas id="barChart"></canvas></div>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><h3>Votos Recientes</h3></div>
+          <div class="table-responsive"><table id="votesTable"><thead><tr><th>Estudiante</th><th>Sección</th><th>Voto</th><th>Fecha</th><th class="dev-only-cell">Acciones</th></tr></thead><tbody id="votesBody"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Students Tab -->
+      <div class="tab-content hidden" id="contentStudents">
+        <div class="table-card">
+          <div class="table-header">
+            <h3>Lista de Estudiantes</h3>
+            <div class="table-actions">
+              <input type="text" id="studentSearch" placeholder="Buscar estudiante..." class="search-input" oninput="filterStudents()">
+              <select id="sectionFilter" class="filter-select" onchange="filterStudents()">
+                <option value="">Todas las secciones</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive"><table><thead><tr><th>Cédula</th><th>Nombre</th><th>Sección</th><th>Estado</th><th>Votó</th></tr></thead><tbody id="studentsBody"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Candidates Tab (Dev Only) -->
+      <div class="tab-content hidden" id="contentCandidates">
+        <div class="table-card">
+          <div class="table-header"><h3>Gestión de Candidatos</h3><button class="btn btn-primary btn-sm" onclick="showAddCandidate()">+ Agregar</button></div>
+          <div class="table-responsive"><table><thead><tr><th>Avatar</th><th>Nombre</th><th>Partido</th><th>Color</th><th>Acciones</th></tr></thead><tbody id="candidatesBody"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- Settings Tab (Dev Only) -->
+      <div class="tab-content hidden" id="contentSettings">
+        <div class="settings-grid">
+          <div class="setting-card">
+            <h3>Configuración General</h3>
+            <div class="setting-group"><label>Título del Sistema</label><input type="text" id="cfgTitle" class="admin-input"></div>
+            <div class="setting-group"><label>Subtítulo</label><input type="text" id="cfgSubtitle" class="admin-input"></div>
+            <div class="setting-group"><label>URL del Logo</label><input type="text" id="cfgLogo" class="admin-input"></div>
+            <button class="btn btn-primary btn-sm" onclick="saveConfig()">Guardar Configuración</button>
+          </div>
+          <div class="setting-card">
+            <h3>Control de Votación</h3>
+            <div class="toggle-group">
+              <label>Votación Activa</label>
+              <label class="toggle"><input type="checkbox" id="cfgVotingActive" onchange="toggleVoting()"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="danger-zone">
+              <h4>⚠️ Zona de Peligro</h4>
+              <p>Eliminar todos los votos registrados. Esta acción no se puede deshacer.</p>
+              <button class="btn btn-danger btn-sm" onclick="resetAllVotes()">Reiniciar Todos los Votos</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+</body>
+</html>
