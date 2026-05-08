@@ -60,6 +60,12 @@
 .stat-value { font-size: 3rem; font-weight: 900; font-family: 'Outfit'; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .stat-label { color: var(--text-dim); font-weight: 700; margin-top: 5px; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
 
+/* Layout Grid */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 32px; }
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+.chart-card h3 { font-size: 1.1rem; margin-bottom: 20px; font-weight: 700; color: var(--text-main); }
+.chart-card canvas { width: 100% !important; max-height: 350px; }
+
 /* Tables */
 table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
 th { text-align: left; padding: 15px 20px; color: var(--text-dim); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
