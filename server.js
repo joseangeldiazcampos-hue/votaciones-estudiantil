@@ -63,6 +63,7 @@ async function initDB() {
         partido VARCHAR(100) NOT NULL,
         color VARCHAR(20) DEFAULT '#6366f1',
         iniciales VARCHAR(5) NOT NULL,
+        imagen_url TEXT DEFAULT '',
         activo BOOLEAN DEFAULT TRUE,
         orden INT DEFAULT 0
       );
@@ -94,6 +95,11 @@ async function initDB() {
         role VARCHAR(20) NOT NULL DEFAULT 'admin',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    // Migration: add imagen_url column if missing
+    await client.query(`
+      ALTER TABLE candidatos ADD COLUMN IF NOT EXISTS imagen_url TEXT DEFAULT '';
     `);
 
     // Insert default config if not exists
@@ -528,10 +534,10 @@ app.put('/api/admin/config', requireDeveloper, async (req, res) => {
 // Manage candidates
 app.post('/api/admin/candidates', requireDeveloper, async (req, res) => {
   try {
-    const { nombre, partido, color, iniciales, orden } = req.body;
+    const { nombre, partido, color, iniciales, imagen_url, orden } = req.body;
     const result = await pool.query(
-      'INSERT INTO candidatos (nombre, partido, color, iniciales, orden) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [nombre, partido, color, iniciales, orden || 0]
+      'INSERT INTO candidatos (nombre, partido, color, iniciales, imagen_url, orden) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [nombre, partido, color, iniciales, imagen_url || '', orden || 0]
     );
     res.json({ success: true, candidate: result.rows[0] });
   } catch (err) {
@@ -541,10 +547,10 @@ app.post('/api/admin/candidates', requireDeveloper, async (req, res) => {
 
 app.put('/api/admin/candidates/:id', requireDeveloper, async (req, res) => {
   try {
-    const { nombre, partido, color, iniciales, activo, orden } = req.body;
+    const { nombre, partido, color, iniciales, imagen_url, activo, orden } = req.body;
     await pool.query(
-      'UPDATE candidatos SET nombre=$1, partido=$2, color=$3, iniciales=$4, activo=$5, orden=$6 WHERE id=$7',
-      [nombre, partido, color, iniciales, activo, orden, req.params.id]
+      'UPDATE candidatos SET nombre=$1, partido=$2, color=$3, iniciales=$4, imagen_url=$5, activo=$6, orden=$7 WHERE id=$8',
+      [nombre, partido, color, iniciales, imagen_url || '', activo, orden, req.params.id]
     );
     res.json({ success: true });
   } catch (err) {

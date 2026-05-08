@@ -103,8 +103,35 @@
       <!-- Candidates Tab (Dev Only) -->
       <div class="tab-content hidden" id="contentCandidates">
         <div class="table-card">
-          <div class="table-header"><h3>Gestión de Candidatos</h3><button class="btn btn-primary btn-sm" onclick="showAddCandidate()">+ Agregar</button></div>
-          <div class="table-responsive"><table><thead><tr><th>Avatar</th><th>Nombre</th><th>Partido</th><th>Color</th><th>Acciones</th></tr></thead><tbody id="candidatesBody"></tbody></table></div>
+          <div class="table-header"><h3>Gestión de Candidatos</h3><button class="btn btn-primary btn-sm" onclick="openCandidateModal()">+ Agregar Candidato</button></div>
+          <div class="candidates-manage-grid" id="candidatesManageGrid">
+            <!-- Loaded dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Candidate Edit Modal -->
+      <div class="modal-overlay hidden" id="candidateModal">
+        <div class="modal" style="max-width:540px">
+          <div class="modal-header"><h3 id="candidateModalTitle">Agregar Candidato</h3></div>
+          <div class="modal-body">
+            <div class="candidate-preview" id="candidatePreview">
+              <div class="candidate-preview-avatar" id="previewAvatar" style="background:#6366f1">AB</div>
+              <div><strong id="previewName">Nombre</strong><br><span style="color:var(--text-muted)" id="previewParty">Partido</span></div>
+            </div>
+            <div class="edit-form-grid">
+              <div class="setting-group"><label>Nombre del Candidato</label><input type="text" id="editNombre" class="admin-input" style="padding-left:14px" placeholder="Nombre completo" oninput="updatePreview()"></div>
+              <div class="setting-group"><label>Nombre del Partido</label><input type="text" id="editPartido" class="admin-input" style="padding-left:14px" placeholder="Partido político" oninput="updatePreview()"></div>
+              <div class="setting-group"><label>Iniciales (2-3 letras)</label><input type="text" id="editIniciales" class="admin-input" style="padding-left:14px" placeholder="JP" maxlength="3" oninput="updatePreview()"></div>
+              <div class="setting-group"><label>Color del Partido</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="editColor" value="#6366f1" style="width:50px;height:40px;border:none;border-radius:8px;cursor:pointer;background:transparent" oninput="updatePreview()"><input type="text" id="editColorText" class="admin-input" style="padding-left:14px;flex:1" placeholder="#6366f1" oninput="syncColorFromText()"></div></div>
+              <div class="setting-group" style="grid-column:1/-1"><label>URL de Imagen del Partido (opcional)</label><input type="text" id="editImagen" class="admin-input" style="padding-left:14px" placeholder="https://ejemplo.com/imagen.png" oninput="updatePreview()"></div>
+              <div class="setting-group"><label>Orden (número)</label><input type="number" id="editOrden" class="admin-input" style="padding-left:14px" placeholder="1" value="0"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeCandidateModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveCandidate()">Guardar</button>
+          </div>
         </div>
       </div>
 

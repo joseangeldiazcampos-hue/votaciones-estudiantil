@@ -153,27 +153,117 @@ function filterStudents() {
 }
 
 // ===== CANDIDATES =====
+let editingCandidateId = null;
+
 async function loadAdminCandidates() {
   const res = await fetch('/api/admin/candidates');
   const candidates = await res.json();
-  document.getElementById('candidatesBody').innerHTML = candidates.map(c => `<tr>
-    <td><div style="width:40px;height:40px;border-radius:10px;background:${c.color};display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:0.85rem">${c.iniciales}</div></td>
-    <td>${c.nombre}</td><td>${c.partido}</td>
-    <td><div style="width:24px;height:24px;border-radius:6px;background:${c.color}"></div></td>
-    <td><button class="btn-icon" onclick="deleteCandidate(${c.id})" title="Eliminar">🗑️</button></td>
-  </tr>`).join('');
+  const grid = document.getElementById('candidatesManageGrid');
+  grid.innerHTML = candidates.map(c => {
+    const avatarContent = c.imagen_url
+      ? `<img src="${c.imagen_url}" alt="${c.nombre}">`
+      : c.iniciales;
+    return `<div class="candidate-manage-card">
+      <div class="candidate-manage-top">
+        <div class="candidate-manage-avatar" style="background:${c.color}">${avatarContent}</div>
+        <div class="candidate-manage-info">
+          <div class="candidate-manage-name">${c.nombre}</div>
+          <div class="candidate-manage-party">${c.partido}</div>
+        </div>
+      </div>
+      <div class="candidate-manage-meta">
+        <div class="candidate-manage-color" style="background:${c.color}"></div>
+        <span class="meta-tag">${c.iniciales}</span>
+        <span class="meta-tag">Orden: ${c.orden}</span>
+        ${c.imagen_url ? '<span class="meta-tag">📷 Imagen</span>' : ''}
+      </div>
+      <div class="candidate-manage-actions">
+        <button class="btn-edit" onclick='editCandidate(${JSON.stringify(c).replace(/'/g, "&#39;")})'>✏️ Editar</button>
+        <button class="btn-delete-card" onclick="deleteCandidate(${c.id})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-function showAddCandidate() {
-  const nombre = prompt('Nombre del candidato:');
-  if (!nombre) return;
-  const partido = prompt('Nombre del partido:');
-  const iniciales = prompt('Iniciales (ej: JP):');
-  const color = prompt('Color hex (ej: #6366f1):', '#6366f1');
-  fetch('/api/admin/candidates', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombre, partido, color, iniciales, orden: 0 })
-  }).then(() => loadAdminCandidates());
+function openCandidateModal(candidate = null) {
+  editingCandidateId = candidate ? candidate.id : null;
+  document.getElementById('candidateModalTitle').textContent = candidate ? 'Editar Candidato' : 'Agregar Candidato';
+  document.getElementById('editNombre').value = candidate ? candidate.nombre : '';
+  document.getElementById('editPartido').value = candidate ? candidate.partido : '';
+  document.getElementById('editIniciales').value = candidate ? candidate.iniciales : '';
+  document.getElementById('editColor').value = candidate ? candidate.color : '#6366f1';
+  document.getElementById('editColorText').value = candidate ? candidate.color : '#6366f1';
+  document.getElementById('editImagen').value = candidate ? (candidate.imagen_url || '') : '';
+  document.getElementById('editOrden').value = candidate ? candidate.orden : 0;
+  updatePreview();
+  document.getElementById('candidateModal').classList.remove('hidden');
+}
+
+function closeCandidateModal() {
+  document.getElementById('candidateModal').classList.add('hidden');
+  editingCandidateId = null;
+}
+
+function editCandidate(candidate) {
+  openCandidateModal(candidate);
+}
+
+function updatePreview() {
+  const nombre = document.getElementById('editNombre').value || 'Nombre';
+  const partido = document.getElementById('editPartido').value || 'Partido';
+  const iniciales = document.getElementById('editIniciales').value || 'AB';
+  const color = document.getElementById('editColor').value;
+  const imagen = document.getElementById('editImagen').value;
+
+  document.getElementById('editColorText').value = color;
+  document.getElementById('previewName').textContent = nombre;
+  document.getElementById('previewParty').textContent = partido;
+
+  const avatar = document.getElementById('previewAvatar');
+  avatar.style.background = color;
+  if (imagen) {
+    avatar.innerHTML = `<img src="${imagen}" alt="${nombre}" style="width:100%;height:100%;object-fit:cover">`;
+  } else {
+    avatar.textContent = iniciales;
+  }
+}
+
+function syncColorFromText() {
+  const hex = document.getElementById('editColorText').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    document.getElementById('editColor').value = hex;
+    updatePreview();
+  }
+}
+
+async function saveCandidate() {
+  const data = {
+    nombre: document.getElementById('editNombre').value.trim(),
+    partido: document.getElementById('editPartido').value.trim(),
+    iniciales: document.getElementById('editIniciales').value.trim(),
+    color: document.getElementById('editColor').value,
+    imagen_url: document.getElementById('editImagen').value.trim(),
+    orden: parseInt(document.getElementById('editOrden').value) || 0,
+    activo: true
+  };
+
+  if (!data.nombre || !data.partido || !data.iniciales) {
+    alert('Complete nombre, partido e iniciales.');
+    return;
+  }
+
+  const url = editingCandidateId
+    ? `/api/admin/candidates/${editingCandidateId}`
+    : '/api/admin/candidates';
+  const method = editingCandidateId ? 'PUT' : 'POST';
+
+  await fetch(url, {
+    method, headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  closeCandidateModal();
+  loadAdminCandidates();
 }
 
 async function deleteCandidate(id) {

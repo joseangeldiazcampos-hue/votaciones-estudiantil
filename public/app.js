@@ -77,8 +77,11 @@ function renderCandidates() {
     const card = document.createElement('div');
     card.className = 'candidate-card';
     card.onclick = () => selectCandidate(c);
+    const avatarContent = c.imagen_url
+      ? `<img src="${c.imagen_url}" alt="${c.nombre}" style="width:100%;height:100%;object-fit:cover;border-radius:18px">`
+      : c.iniciales;
     card.innerHTML = `
-      <div class="candidate-avatar" style="background:${c.color}">${c.iniciales}</div>
+      <div class="candidate-avatar" style="background:${c.color}">${avatarContent}</div>
       <div class="candidate-name">${c.nombre}</div>
       <div class="candidate-party">${c.partido}</div>
     `;
@@ -100,8 +103,14 @@ function renderCandidates() {
 // ===== VOTING FLOW =====
 function selectCandidate(candidate) {
   selectedCandidate = candidate;
-  document.getElementById('modalAvatar').style.background = candidate.color;
-  document.getElementById('modalAvatar').textContent = candidate.iniciales;
+  const avatar = document.getElementById('modalAvatar');
+  avatar.style.background = candidate.color;
+  if (candidate.imagen_url) {
+    avatar.innerHTML = `<img src="${candidate.imagen_url}" alt="${candidate.nombre}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
+  } else {
+    avatar.innerHTML = '';
+    avatar.textContent = candidate.iniciales;
+  }
   document.getElementById('modalName').textContent = candidate.nombre;
   document.getElementById('modalParty').textContent = candidate.partido;
   document.getElementById('confirmModal').classList.remove('hidden');
