@@ -7,46 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const data = await res.json();
   if (data.loggedIn) { initDashboard(data.role); }
   document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
-  initTilt();
 });
-
-function initTilt() {
-  let cards = [];
-  const updateCards = () => {
-    cards = Array.from(document.querySelectorAll('.card, .candidate-card, .stat-card, .chart-card, .table-card, .setting-card, .candidate-manage-card'));
-  };
-  
-  // Update list when tabs change or content is loaded
-  const observer = new MutationObserver(updateCards);
-  observer.observe(document.body, { childList: true, subtree: true });
-  updateCards();
-
-  let ticking = false;
-  document.addEventListener('mousemove', e => {
-    if (!ticking) {
-      window.requestAnimationFrame(() => {
-        cards.forEach(card => {
-          if (!card.offsetParent) return; // Skip hidden elements
-          const rect = card.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-
-          if (x > 0 && x < rect.width && y > 0 && y < rect.height) {
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            const rotateX = (y - centerY) / 25;
-            const rotateY = (centerX - x) / 25;
-            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
-          } else if (card.style.transform !== '') {
-            card.style.transform = '';
-          }
-        });
-        ticking = false;
-      });
-      ticking = true;
-    }
-  });
-}
 
 async function adminLogin() {
   const user = document.getElementById('loginUser').value.trim();
@@ -246,7 +207,7 @@ async function loadAdminCandidates() {
     const avatarContent = c.imagen_url
       ? `<img src="${c.imagen_url}" alt="${c.nombre}">`
       : c.iniciales;
-    return `<div class="candidate-manage-card" style="animation: cardReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: ${index * 0.1}s; opacity: 0;">
+    return `<div class="candidate-manage-card">
       <div class="candidate-manage-top">
         <div class="candidate-manage-avatar" style="background:${c.color}">${avatarContent}</div>
         <div class="candidate-manage-info">
