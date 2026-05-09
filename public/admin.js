@@ -11,23 +11,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function initTilt() {
-  document.addEventListener('mousemove', e => {
-    const cards = document.querySelectorAll('.card, .candidate-card, .stat-card, .chart-card, .table-card, .setting-card, .candidate-manage-card');
-    cards.forEach(card => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+  let cards = [];
+  const updateCards = () => {
+    cards = Array.from(document.querySelectorAll('.card, .candidate-card, .stat-card, .chart-card, .table-card, .setting-card, .candidate-manage-card'));
+  };
+  
+  // Update list when tabs change or content is loaded
+  const observer = new MutationObserver(updateCards);
+  observer.observe(document.body, { childList: true, subtree: true });
+  updateCards();
 
-      if (x > 0 && x < rect.width && y > 0 && y < rect.height) {
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        const rotateX = (y - centerY) / 20;
-        const rotateY = (centerX - x) / 20;
-        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
-      } else {
-        card.style.transform = '';
-      }
-    });
+  let ticking = false;
+  document.addEventListener('mousemove', e => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        cards.forEach(card => {
+          if (!card.offsetParent) return; // Skip hidden elements
+          const rect = card.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          if (x > 0 && x < rect.width && y > 0 && y < rect.height) {
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = (y - centerY) / 25;
+            const rotateY = (centerX - x) / 25;
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+          } else if (card.style.transform !== '') {
+            card.style.transform = '';
+          }
+        });
+        ticking = false;
+      });
+      ticking = true;
+    }
   });
 }
 
@@ -208,11 +225,14 @@ function filterStudents() {
     (!search || s.nombre.toLowerCase().includes(search) || s.cedula.includes(search)) &&
     (!section || s.seccion === section)
   );
-  document.getElementById('studentsBody').innerHTML = filtered.map(s => `<tr>
+  
+  const displayList = filtered.slice(0, 100); // Only show first 100 for performance
+  
+  document.getElementById('studentsBody').innerHTML = displayList.map(s => `<tr>
     <td>${s.cedula}</td><td>${s.nombre}</td><td>${s.seccion || '-'}</td>
     <td><span class="vote-badge ${s.activa ? 'voted' : 'pending'}">${s.activa ? 'Activo' : 'Inactivo'}</span></td>
     <td><span class="vote-badge ${s.ha_votado ? 'voted' : 'pending'}">${s.ha_votado ? '✅ Sí' : '⏳ No'}</span></td>
-  </tr>`).join('');
+  </tr>`).join('') + (filtered.length > 100 ? `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-dim);">... y ${filtered.length - 100} más (usa el buscador para filtrar)</td></tr>` : '');
 }
 
 // ===== CANDIDATES =====
