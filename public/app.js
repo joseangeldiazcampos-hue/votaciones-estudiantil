@@ -121,20 +121,21 @@ function renderCandidates() {
       : c.iniciales;
     card.innerHTML = `
       <div class="candidate-avatar" style="background:${c.color}">${avatarContent}</div>
-      <div class="candidate-name">${c.nombre}</div>
-      <div class="candidate-party">${c.partido}</div>
+      <div class="candidate-party" style="font-size:0.9rem; margin-bottom:-5px;">${c.partido} (${c.iniciales})</div>
+      <div class="candidate-name" style="font-size:1.3rem;">${c.nombre}</div>
     `;
     grid.appendChild(card);
   });
 
-  // Add null vote option
   const nullCard = document.createElement('div');
   nullCard.className = 'candidate-card null-vote';
-  nullCard.onclick = () => selectCandidate({ id: 0, nombre: 'Voto Nulo', partido: 'Sin candidato', color: '#64748b', iniciales: 'VN' });
+  nullCard.onclick = () => selectCandidate({ id: 0, nombre: 'Voto Nulo', partido: 'Sin candidato', color: '#64748b', iniciales: 'VN', imagen_url: 'https://i.imgur.com/K07q1kR.png' }); // Usando un placeholder oscuro premium
   nullCard.innerHTML = `
-    <div class="candidate-avatar" style="background:linear-gradient(135deg,#64748b,#475569)">VN</div>
-    <div class="candidate-name">Voto Nulo</div>
-    <div class="candidate-party">Sin candidato</div>
+    <div class="candidate-avatar" style="background:linear-gradient(135deg,#64748b,#475569)">
+      <img src="https://i.imgur.com/K07q1kR.png" alt="Voto Nulo" style="width:100%;height:100%;object-fit:cover;border-radius:22px">
+    </div>
+    <div class="candidate-party" style="font-size:0.9rem; margin-bottom:-5px;">VOTO NULO (VN)</div>
+    <div class="candidate-name" style="font-size:1.3rem;">Voto Nulo</div>
   `;
   grid.appendChild(nullCard);
 }
