@@ -172,7 +172,7 @@ async function confirmVote() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         candidatoId: selectedCandidate.id,
-        votoNombre: selectedCandidate.nombre
+        votoNombre: selectedCandidate.id === 0 ? 'Voto Nulo' : `${selectedCandidate.partido} - ${selectedCandidate.nombre}`
       })
     });
     const data = await res.json();

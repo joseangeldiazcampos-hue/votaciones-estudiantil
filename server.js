@@ -147,6 +147,7 @@ async function initDB() {
       await client.query(`
         UPDATE candidatos SET imagen_url = '/gap.png', nombre = 'Ureña Garro Jefferson Andrey', partido = 'GAP', iniciales = 'GAP' WHERE iniciales = 'GAP' OR partido ILIKE '%Verde%';
         UPDATE candidatos SET imagen_url = '/cie.png', nombre = 'Picado Chaves Ismael Steven', partido = 'Coalición Impulso Estudiantil', iniciales = 'CIE' WHERE iniciales = 'CIE' OR partido ILIKE '%Azul%';
+        UPDATE candidatos SET activo = FALSE WHERE iniciales NOT IN ('GAP', 'CIE');
       `);
     }
 
