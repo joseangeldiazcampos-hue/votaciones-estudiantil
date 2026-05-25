@@ -143,7 +143,6 @@ function renderVotesTable(votes) {
   const body = document.getElementById('votesBody');
   body.innerHTML = votes.map(v => `<tr>
     <td>${v.nombre}</td><td>${v.seccion || '-'}</td>
-    <td><span class="vote-badge voted">${v.voto_nombre}</span></td>
     <td>${new Date(v.fecha_voto).toLocaleString('es-CR')}</td>
     <td class="dev-only-cell"><button class="btn-icon" onclick="deleteVote(${v.id})" title="Eliminar">🗑️</button></td>
   </tr>`).join('');
