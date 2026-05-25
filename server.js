@@ -142,6 +142,12 @@ async function initDB() {
         ('Ureña Garro Jefferson Andrey', 'GAP', '#ef4444', 'GAP', '/gap.png', 1),
         ('Picado Chaves Ismael Steven', 'Coalición Impulso Estudiantil', '#3b82f6', 'CIE', '/cie.png', 2)
       `);
+    } else {
+      // Force update existing placeholders or manually added candidates with the correct official images and names
+      await client.query(`
+        UPDATE candidatos SET imagen_url = '/gap.png', nombre = 'Ureña Garro Jefferson Andrey', partido = 'GAP', iniciales = 'GAP' WHERE iniciales = 'GAP' OR partido ILIKE '%Verde%';
+        UPDATE candidatos SET imagen_url = '/cie.png', nombre = 'Picado Chaves Ismael Steven', partido = 'Coalición Impulso Estudiantil', iniciales = 'CIE' WHERE iniciales = 'CIE' OR partido ILIKE '%Azul%';
+      `);
     }
 
     // Insert students from all sections
