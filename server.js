@@ -138,9 +138,9 @@ async function initDB() {
     const candidateCount = await client.query('SELECT COUNT(*) FROM candidatos');
     if (parseInt(candidateCount.rows[0].count) === 0) {
       await client.query(`
-        INSERT INTO candidatos (nombre, partido, color, iniciales, orden) VALUES
-        ('Ureña Garro Jefferson Andrey', 'GAP', '#ef4444', 'GAP', 1),
-        ('Picado Chaves Ismael Steven', 'Coalición Impulso Estudiantil', '#3b82f6', 'CIE', 2)
+        INSERT INTO candidatos (nombre, partido, color, iniciales, imagen_url, orden) VALUES
+        ('Ureña Garro Jefferson Andrey', 'GAP', '#ef4444', 'GAP', '/gap.png', 1),
+        ('Picado Chaves Ismael Steven', 'Coalición Impulso Estudiantil', '#3b82f6', 'CIE', '/cie.png', 2)
       `);
     }
 
