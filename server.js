@@ -1,108 +1,121 @@
 const express = require('express');
-const { Pool } = require('pg');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
+const MongoStore = require('connect-mongo');
 const path = require('path');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-// PostgreSQL connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+if (!MONGODB_URI) {
+  console.error('❌ ERROR: MONGODB_URI no está definido en el archivo .env o en el entorno.');
+  process.exit(1);
+}
 
-// Trust proxy (needed for Render.com reverse proxy)
-app.set('trust proxy', 1);
+// ── Conexión a MongoDB Atlas ─────────────────────────────────────────────────
+mongoose.connect(MONGODB_URI)
+  .then(() => {
+    console.log('✅ Conectado exitosamente a MongoDB Atlas');
+    inicializarDatosDefault();
+  })
+  .catch(err => {
+    console.error('❌ Error de conexión a MongoDB Atlas:', err.message);
+    process.exit(1);
+  });
 
-// Middleware
+// ── Modelos y Esquemas de Mongoose ──────────────────────────────────────────
+const counterSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true },
+  value: { type: Number, default: 0 }
+}, { collection: 'counters' });
+const Counter = mongoose.model('Counter', counterSchema);
+
+async function getNextId(key) {
+  const counter = await Counter.findOneAndUpdate(
+    { key },
+    { $inc: { value: 1 } },
+    { new: true, upsert: true }
+  );
+  return counter.value;
+}
+
+const cedulaAutorizadaSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  cedula: { type: String, required: true, unique: true, index: true },
+  nombre: { type: String, required: true },
+  seccion: { type: String, default: '' },
+  activa: { type: Boolean, default: true },
+  created_at: { type: Date, default: Date.now }
+}, { collection: 'cedulas_autorizadas' });
+const CedulaAutorizada = mongoose.model('CedulaAutorizada', cedulaAutorizadaSchema);
+
+const candidatoSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  nombre: { type: String, required: true },
+  partido: { type: String, required: true },
+  color: { type: String, default: '#6366f1' },
+  iniciales: { type: String, required: true },
+  imagen_url: { type: String, default: '' },
+  activo: { type: Boolean, default: true },
+  orden: { type: Number, default: 0 }
+}, { collection: 'candidatos' });
+const Candidato = mongoose.model('Candidato', candidatoSchema);
+
+const votoSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  cedula_id: { type: Number, required: true, index: true },
+  candidato_id: { type: Number, required: true },
+  voto_nombre: { type: String, required: true },
+  fecha_voto: { type: Date, default: Date.now }
+}, { collection: 'votos' });
+const Voto = mongoose.model('Voto', votoSchema);
+
+const configuracionSchema = new mongoose.Schema({
+  clave: { type: String, required: true, unique: true, index: true },
+  valor: { type: String, required: true }
+}, { collection: 'configuracion' });
+const Configuracion = mongoose.model('Configuracion', configuracionSchema);
+
+const adminUserSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  username: { type: String, required: true, unique: true, index: true },
+  password_hash: { type: String, required: true },
+  role: { type: String, default: 'admin' },
+  created_at: { type: Date, default: Date.now }
+}, { collection: 'admin_users' });
+const AdminUser = mongoose.model('AdminUser', adminUserSchema);
+
+// ── Middleware ──────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.set('trust proxy', 1);
 
-// Session configuration
+// ── Configuración de Sesiones con connect-mongo ──────────────────────────────
 app.use(session({
-  store: new pgSession({
-    pool: pool,
-    tableName: 'session',
-    createTableIfMissing: true
+  store: MongoStore.create({
+    mongoUrl: MONGODB_URI,
+    collectionName: 'sessions',
+    ttl: 30 * 60 // 30 minutos
   }),
-  secret: process.env.SESSION_SECRET || 'votaciones-secret-key-2026',
+  secret: process.env.SESSION_SECRET || 'votaciones-secret-key-2026-secure',
   resave: true,
   saveUninitialized: true,
   cookie: {
-    maxAge: 30 * 60 * 1000, // 30 minutes
+    maxAge: 30 * 60 * 1000, // 30 minutos
     httpOnly: true,
     secure: false,
     sameSite: 'lax'
   }
 }));
 
-// Initialize database tables
-async function initDB() {
-  const client = await pool.connect();
+// ── Inicialización de Datos Default ─────────────────────────────────────────
+async function inicializarDatosDefault() {
   try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS cedulas_autorizadas (
-        id SERIAL PRIMARY KEY,
-        cedula VARCHAR(30) NOT NULL UNIQUE,
-        nombre VARCHAR(150) NOT NULL,
-        seccion VARCHAR(10) DEFAULT '',
-        activa BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS candidatos (
-        id SERIAL PRIMARY KEY,
-        nombre VARCHAR(100) NOT NULL,
-        partido VARCHAR(100) NOT NULL,
-        color VARCHAR(20) DEFAULT '#6366f1',
-        iniciales VARCHAR(5) NOT NULL,
-        imagen_url TEXT DEFAULT '',
-        activo BOOLEAN DEFAULT TRUE,
-        orden INT DEFAULT 0
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS votos (
-        id SERIAL PRIMARY KEY,
-        cedula_id INT NOT NULL REFERENCES cedulas_autorizadas(id),
-        candidato_id INT NOT NULL,
-        voto_nombre VARCHAR(100) NOT NULL,
-        fecha_voto TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS configuracion (
-        id SERIAL PRIMARY KEY,
-        clave VARCHAR(50) UNIQUE NOT NULL,
-        valor TEXT NOT NULL
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS admin_users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(50) UNIQUE NOT NULL,
-        password_hash VARCHAR(100) NOT NULL,
-        role VARCHAR(20) NOT NULL DEFAULT 'admin',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Migration: add imagen_url column if missing
-    await client.query(`
-      ALTER TABLE candidatos ADD COLUMN IF NOT EXISTS imagen_url TEXT DEFAULT '';
-    `);
-
-    // Insert default config if not exists
+    // 1. Configuración por defecto
     const configDefaults = [
       ['titulo_sistema', 'Sistema de Votaciones Estudiantil'],
       ['subtitulo', 'Liceo Rural San Isidro'],
@@ -112,60 +125,57 @@ async function initDB() {
     ];
 
     for (const [clave, valor] of configDefaults) {
-      await client.query(`
-        INSERT INTO configuracion (clave, valor) 
-        VALUES ($1, $2) 
-        ON CONFLICT (clave) DO NOTHING
-      `, [clave, valor]);
+      const existe = await Configuracion.findOne({ clave });
+      if (!existe) {
+        await Configuracion.create({ clave, valor });
+      }
     }
 
-    // Insert default admin users if not exist
-    const adminHash = await bcrypt.hash('admin2026', 10);
-    const devHash = await bcrypt.hash('dev2026', 10);
+    // 2. Usuarios por defecto (admin y dev)
+    const adminExiste = await AdminUser.findOne({ username: 'admin' });
+    if (!adminExiste) {
+      const adminHash = await bcrypt.hash('admin2026', 10);
+      const nextId = await getNextId('adminUserId');
+      await AdminUser.create({ id: nextId, username: 'admin', password_hash: adminHash, role: 'admin' });
+    }
 
-    await client.query(`
-      INSERT INTO admin_users (username, password_hash, role) 
-      VALUES ($1, $2, 'admin') 
-      ON CONFLICT (username) DO NOTHING
-    `, ['admin', adminHash]);
+    const devExiste = await AdminUser.findOne({ username: 'developer' });
+    if (!devExiste) {
+      const devHash = await bcrypt.hash('dev2026', 10);
+      const nextId = await getNextId('adminUserId');
+      await AdminUser.create({ id: nextId, username: 'developer', password_hash: devHash, role: 'developer' });
+    }
 
-    await client.query(`
-      INSERT INTO admin_users (username, password_hash, role) 
-      VALUES ($1, $2, 'developer') 
-      ON CONFLICT (username) DO NOTHING
-    `, ['developer', devHash]);
-
-    const candidateCount = await client.query('SELECT COUNT(*) FROM candidatos');
-    if (parseInt(candidateCount.rows[0].count) === 0) {
-      await client.query(`
-        INSERT INTO candidatos (nombre, partido, color, iniciales, imagen_url, orden) VALUES
-        ('Ureña Garro Jefferson Andrey', 'GAP', '#ef4444', 'GAP', '/gap.png', 1),
-        ('Picado Chaves Ismael Steven', 'Coalición Impulso Estudiantil', '#3b82f6', 'CIE', '/cie.png', 2)
-      `);
+    // 3. Candidatos por defecto
+    const candidatosCant = await Candidato.countDocuments({});
+    if (candidatosCant === 0) {
+      const id1 = await getNextId('candidatoId');
+      const id2 = await getNextId('candidatoId');
+      await Candidato.create([
+        { id: id1, nombre: 'Ureña Garro Jefferson Andrey', partido: 'GAP', color: '#ef4444', iniciales: 'GAP', imagen_url: '/gap.png', orden: 1 },
+        { id: id2, nombre: 'Picado Chaves Ismael Steven', partido: 'Coalición Impulso Estudiantil', color: '#3b82f6', iniciales: 'CIE', imagen_url: '/cie.png', orden: 2 }
+      ]);
+      console.log('✅ Candidatos iniciales creados');
     } else {
-      // Force update existing placeholders or manually added candidates with the correct official images and names
-      await client.query(`
-        UPDATE candidatos SET imagen_url = '/gap.png', nombre = 'Ureña Garro Jefferson Andrey', partido = 'GAP', iniciales = 'GAP' WHERE iniciales = 'GAP' OR partido ILIKE '%Verde%';
-        UPDATE candidatos SET imagen_url = '/cie.png', nombre = 'Picado Chaves Ismael Steven', partido = 'Coalición Impulso Estudiantil', iniciales = 'CIE' WHERE iniciales = 'CIE' OR partido ILIKE '%Azul%';
-        UPDATE candidatos SET activo = FALSE WHERE iniciales NOT IN ('GAP', 'CIE');
-      `);
+      // Forzar actualización de datos oficiales
+      await Candidato.updateMany({ iniciales: 'GAP' }, { imagen_url: '/gap.png', nombre: 'Ureña Garro Jefferson Andrey', partido: 'GAP', iniciales: 'GAP' });
+      await Candidato.updateMany({ iniciales: 'CIE' }, { imagen_url: '/cie.png', nombre: 'Picado Chaves Ismael Steven', partido: 'Coalición Impulso Estudiantil', iniciales: 'CIE' });
+      await Candidato.updateMany({ iniciales: { $nin: ['GAP', 'CIE'] } }, { activo: false });
     }
 
-    // Insert students from all sections
-    const studentCount = await client.query('SELECT COUNT(*) FROM cedulas_autorizadas');
-    if (parseInt(studentCount.rows[0].count) === 0) {
-      await insertStudents(client);
+    // 4. Estudiantes
+    const estudiantesCant = await CedulaAutorizada.countDocuments({});
+    if (estudiantesCant === 0) {
+      await insertarEstudiantes();
     }
 
-    console.log('✅ Database initialized successfully');
+    console.log('✅ Base de datos MongoDB inicializada con éxito');
   } catch (err) {
-    console.error('❌ Error initializing database:', err);
-  } finally {
-    client.release();
+    console.error('❌ Error inicializando datos en MongoDB:', err);
   }
 }
 
-async function insertStudents(client) {
+async function insertarEstudiantes() {
   const students = [
     // 7-1
     ['306160854', 'Abarca Portuguez Valentina de los Ángeles', '7-1'],
@@ -261,96 +271,91 @@ async function insertStudents(client) {
   ];
 
   for (const [cedula, nombre, seccion] of students) {
-    await client.query(`
-      INSERT INTO cedulas_autorizadas (cedula, nombre, seccion) 
-      VALUES ($1, $2, $3) 
-      ON CONFLICT (cedula) DO NOTHING
-    `, [cedula, nombre, seccion]);
+    const nextId = await getNextId('studentId');
+    await CedulaAutorizada.create({
+      id: nextId,
+      cedula,
+      nombre,
+      seccion
+    });
   }
-  console.log(`✅ ${students.length} students inserted`);
+  console.log(`✅ ${students.length} estudiantes autorizados insertados en MongoDB`);
 }
 
-// =================== API ROUTES ===================
+// =================== RUTAS DE LA API ===================
 
-// Get system configuration
+// Obtener configuración visual y estado
 app.get('/api/config', async (req, res) => {
   try {
-    const result = await pool.query('SELECT clave, valor FROM configuracion');
+    const result = await Configuracion.find({});
     const config = {};
-    result.rows.forEach(row => { config[row.clave] = row.valor; });
+    result.forEach(doc => { config[doc.clave] = doc.valor; });
     res.json(config);
   } catch (err) {
-    res.status(500).json({ error: 'Error fetching config' });
+    res.status(500).json({ error: 'Error al obtener la configuración' });
   }
 });
 
-// Verify cedula
+// Verificar cédula
 app.post('/api/verify-cedula', async (req, res) => {
   try {
     let { cedula } = req.body;
+    if (!cedula) return res.status(400).json({ success: false, message: 'Cédula requerida' });
+    
     cedula = cedula.replace(/[-\s]/g, '').trim();
 
-    // Check voting active
-    const configResult = await pool.query("SELECT valor FROM configuracion WHERE clave = 'votacion_activa'");
-    if (configResult.rows.length > 0 && configResult.rows[0].valor === 'false') {
+    // Validar si la votación está activa
+    const configActiva = await Configuracion.findOne({ clave: 'votacion_activa' });
+    if (configActiva && configActiva.valor === 'false') {
       return res.json({ success: false, message: 'La votación no está activa en este momento.' });
     }
 
-    // Check if already voted
-    const voteCheck = await pool.query(`
-      SELECT v.id FROM votos v 
-      INNER JOIN cedulas_autorizadas c ON v.cedula_id = c.id 
-      WHERE c.cedula = $1
-    `, [cedula]);
-
-    if (voteCheck.rows.length > 0) {
-      return res.json({ success: false, message: 'Esta cédula ya ha emitido su voto.' });
-    }
-
-    // Check if authorized
-    const cedulaCheck = await pool.query(
-      'SELECT id, nombre, seccion FROM cedulas_autorizadas WHERE cedula = $1 AND activa = TRUE',
-      [cedula]
-    );
-
-    if (cedulaCheck.rows.length === 0) {
+    // Verificar si el estudiante está registrado y activo
+    const estudiante = await CedulaAutorizada.findOne({ cedula, activa: true });
+    if (!estudiante) {
       return res.json({ success: false, message: 'Cédula no autorizada para votar.' });
     }
 
-    const student = cedulaCheck.rows[0];
+    // Verificar si ya emitió el voto
+    const votoExiste = await Voto.findOne({ cedula_id: estudiante.id });
+    if (votoExiste) {
+      return res.json({ success: false, message: 'Esta cédula ya ha emitido su voto.' });
+    }
+
+    // Registrar en sesión
     req.session.cedula = cedula;
-    req.session.cedulaId = student.id;
-    req.session.nombre = student.nombre;
-    req.session.seccion = student.seccion;
+    req.session.cedulaId = estudiante.id;
+    req.session.nombre = estudiante.nombre;
+    req.session.seccion = estudiante.seccion;
 
     req.session.save((err) => {
       if (err) {
-        console.error('Session save error:', err);
+        console.error('Error al guardar la sesión:', err);
         return res.status(500).json({ success: false, message: 'Error del servidor.' });
       }
       res.json({
         success: true,
-        nombre: student.nombre,
-        seccion: student.seccion
+        nombre: estudiante.nombre,
+        seccion: estudiante.seccion
       });
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: 'Error del servidor.' });
+    res.status(500).json({ success: false, message: 'Error interno del servidor.' });
   }
 });
 
-// Get candidates
+// Obtener candidatos activos
 app.get('/api/candidates', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM candidatos WHERE activo = TRUE ORDER BY orden');
-    res.json(result.rows);
+    const candidatos = await Candidato.find({ activo: true }).sort({ orden: 1 });
+    res.json(candidatos);
   } catch (err) {
-    res.status(500).json({ error: 'Error fetching candidates' });
+    res.status(500).json({ error: 'Error al obtener candidatos' });
   }
 });
 
-// Submit vote
+// Registrar voto
 app.post('/api/vote', async (req, res) => {
   try {
     if (!req.session.cedula || !req.session.cedulaId) {
@@ -359,20 +364,21 @@ app.post('/api/vote', async (req, res) => {
 
     const { candidatoId, votoNombre } = req.body;
 
-    // Double-check no duplicate vote
-    const voteCheck = await pool.query(`
-      SELECT v.id FROM votos v WHERE v.cedula_id = $1
-    `, [req.session.cedulaId]);
-
-    if (voteCheck.rows.length > 0) {
+    // Verificar doble voto por seguridad
+    const votoExiste = await Voto.findOne({ cedula_id: req.session.cedulaId });
+    if (votoExiste) {
       req.session.destroy();
       return res.json({ success: false, message: 'Esta cédula ya ha emitido su voto.' });
     }
 
-    await pool.query(
-      'INSERT INTO votos (cedula_id, candidato_id, voto_nombre) VALUES ($1, $2, $3)',
-      [req.session.cedulaId, candidatoId, votoNombre]
-    );
+    // Generar ID e insertar voto
+    const nextId = await getNextId('votoId');
+    await Voto.create({
+      id: nextId,
+      cedula_id: req.session.cedulaId,
+      candidato_id: candidatoId,
+      voto_nombre: votoNombre
+    });
 
     req.session.destroy();
     res.json({ success: true, message: '¡Voto registrado exitosamente!' });
@@ -382,21 +388,19 @@ app.post('/api/vote', async (req, res) => {
   }
 });
 
-// =================== ADMIN ROUTES ===================
+// =================== RUTAS DE ADMINISTRACIÓN ===================
 
-// Admin login
+// Login admin
 app.post('/api/admin/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const result = await pool.query('SELECT * FROM admin_users WHERE username = $1', [username]);
+    const user = await AdminUser.findOne({ username });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.json({ success: false, message: 'Credenciales incorrectas.' });
     }
 
-    const user = result.rows[0];
     const validPassword = await bcrypt.compare(password, user.password_hash);
-
     if (!validPassword) {
       return res.json({ success: false, message: 'Credenciales incorrectas.' });
     }
@@ -405,7 +409,7 @@ app.post('/api/admin/login', async (req, res) => {
     req.session.adminRole = user.role;
     req.session.save((err) => {
       if (err) {
-        console.error('Session save error:', err);
+        console.error('Error al guardar la sesión admin:', err);
         return res.status(500).json({ success: false, message: 'Error del servidor.' });
       }
       res.json({ success: true, role: user.role, username });
@@ -416,7 +420,7 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
-// Check admin session
+// Verificar sesión admin
 app.get('/api/admin/session', (req, res) => {
   if (req.session.adminUser) {
     res.json({ loggedIn: true, role: req.session.adminRole, username: req.session.adminUser });
@@ -425,13 +429,13 @@ app.get('/api/admin/session', (req, res) => {
   }
 });
 
-// Admin logout
+// Logout admin
 app.post('/api/admin/logout', (req, res) => {
   req.session.destroy();
   res.json({ success: true });
 });
 
-// Middleware to check admin auth
+// Middleware de autenticación
 function requireAdmin(req, res, next) {
   if (!req.session.adminUser) {
     return res.status(401).json({ error: 'No autorizado' });
@@ -446,195 +450,309 @@ function requireDeveloper(req, res, next) {
   next();
 }
 
-// Get vote statistics
+// Obtener estadísticas de votación
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
-    const totalVotes = await pool.query('SELECT COUNT(*) as total FROM votos');
-    const totalStudents = await pool.query('SELECT COUNT(*) as total FROM cedulas_autorizadas WHERE activa = TRUE');
+    const totalVotes = await Voto.countDocuments({});
+    const totalStudents = await CedulaAutorizada.countDocuments({ activa: true });
 
-    const votesByCandidate = await pool.query(`
-      SELECT voto_nombre, COUNT(*) as total 
-      FROM votos GROUP BY voto_nombre ORDER BY total DESC
-    `);
+    // Votos agrupados por candidato
+    const rawVotesByCandidate = await Voto.aggregate([
+      { $group: { _id: '$voto_nombre', total: { $sum: 1 } } },
+      { $sort: { total: -1 } }
+    ]);
+    const votesByCandidate = rawVotesByCandidate.map(r => ({
+      voto_nombre: r._id,
+      total: r.total
+    }));
 
-    const votesBySection = await pool.query(`
-      SELECT c.seccion, COUNT(v.id) as total 
-      FROM votos v 
-      JOIN cedulas_autorizadas c ON v.cedula_id = c.id 
-      GROUP BY c.seccion ORDER BY c.seccion
-    `);
+    // Votos agrupados por sección
+    const rawVotesBySection = await Voto.aggregate([
+      {
+        $lookup: {
+          from: 'cedulas_autorizadas',
+          localField: 'cedula_id',
+          foreignField: 'id',
+          as: 'estudiante'
+        }
+      },
+      { $unwind: '$estudiante' },
+      { $group: { _id: '$estudiante.seccion', total: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+    const votesBySection = rawVotesBySection.map(r => ({
+      seccion: r._id,
+      total: r.total
+    }));
 
-    const recentVotes = await pool.query(`
-      SELECT v.id, c.nombre, c.cedula, c.seccion, v.voto_nombre, v.fecha_voto 
-      FROM votos v 
-      JOIN cedulas_autorizadas c ON v.cedula_id = c.id 
-      ORDER BY v.fecha_voto DESC LIMIT 50
-    `);
+    // Últimos 50 votos registrados
+    const recentVotes = await Voto.aggregate([
+      {
+        $lookup: {
+          from: 'cedulas_autorizadas',
+          localField: 'cedula_id',
+          foreignField: 'id',
+          as: 'estudiante'
+        }
+      },
+      { $unwind: '$estudiante' },
+      { $sort: { fecha_voto: -1 } },
+      { $limit: 50 },
+      {
+        $project: {
+          id: '$id',
+          nombre: '$estudiante.nombre',
+          cedula: '$estudiante.cedula',
+          seccion: '$estudiante.seccion',
+          voto_nombre: '$voto_nombre',
+          fecha_voto: '$fecha_voto'
+        }
+      }
+    ]);
 
-    const participationBySection = await pool.query(`
-      SELECT 
-        ca.seccion,
-        COUNT(DISTINCT ca.id) as total_students,
-        COUNT(DISTINCT v.cedula_id) as voted
-      FROM cedulas_autorizadas ca
-      LEFT JOIN votos v ON ca.id = v.cedula_id
-      WHERE ca.activa = TRUE
-      GROUP BY ca.seccion
-      ORDER BY ca.seccion
-    `);
+    // Participación y votos por sección
+    const participationBySection = await CedulaAutorizada.aggregate([
+      { $match: { activa: true } },
+      {
+        $lookup: {
+          from: 'votos',
+          localField: 'id',
+          foreignField: 'cedula_id',
+          as: 'voto'
+        }
+      },
+      {
+        $group: {
+          _id: '$seccion',
+          total_students: { $sum: 1 },
+          voted: {
+            $sum: {
+              $cond: [{ $gt: [{ $size: '$voto' }, 0] }, 1, 0]
+            }
+          }
+        }
+      },
+      { $sort: { _id: 1 } },
+      {
+        $project: {
+          seccion: '$_id',
+          total_students: 1,
+          voted: 1
+        }
+      }
+    ]);
 
     res.json({
-      totalVotes: parseInt(totalVotes.rows[0].total),
-      totalStudents: parseInt(totalStudents.rows[0].total),
-      votesByCandidate: votesByCandidate.rows,
-      votesBySection: votesBySection.rows,
-      recentVotes: recentVotes.rows,
-      participationBySection: participationBySection.rows
+      totalVotes,
+      totalStudents,
+      votesByCandidate,
+      votesBySection,
+      recentVotes,
+      participationBySection
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error fetching stats' });
+    res.status(500).json({ error: 'Error al obtener estadísticas' });
   }
 });
 
-// Get all students
+// Obtener lista completa de estudiantes con estado de voto
 app.get('/api/admin/students', requireAdmin, async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT ca.*, 
-        CASE WHEN v.id IS NOT NULL THEN true ELSE false END as ha_votado,
-        v.voto_nombre, v.fecha_voto
-      FROM cedulas_autorizadas ca
-      LEFT JOIN votos v ON ca.id = v.cedula_id
-      ORDER BY ca.seccion, ca.nombre
-    `);
-    res.json(result.rows);
+    const studentsList = await CedulaAutorizada.aggregate([
+      {
+        $lookup: {
+          from: 'votos',
+          localField: 'id',
+          foreignField: 'cedula_id',
+          as: 'voto'
+        }
+      },
+      {
+        $project: {
+          id: '$id',
+          cedula: '$cedula',
+          nombre: '$nombre',
+          seccion: '$seccion',
+          activa: '$activa',
+          created_at: '$created_at',
+          ha_votado: { $gt: [{ $size: '$voto' }, 0] },
+          voto_nombre: { $ifNull: [{ $arrayElemAt: ['$voto.voto_nombre', 0] }, null] },
+          fecha_voto: { $ifNull: [{ $arrayElemAt: ['$voto.fecha_voto', 0] }, null] }
+        }
+      },
+      { $sort: { seccion: 1, nombre: 1 } }
+    ]);
+    res.json(studentsList);
   } catch (err) {
-    res.status(500).json({ error: 'Error fetching students' });
+    res.status(500).json({ error: 'Error al obtener estudiantes' });
   }
 });
 
-// Delete a vote (developer only)
+// Eliminar un voto individual (solo desarrollador)
 app.delete('/api/admin/votes/:id', requireDeveloper, async (req, res) => {
   try {
-    await pool.query('DELETE FROM votos WHERE id = $1', [req.params.id]);
+    const result = await Voto.deleteOne({ id: parseInt(req.params.id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Voto no encontrado' });
+    }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error deleting vote' });
+    res.status(500).json({ error: 'Error al eliminar el voto' });
   }
 });
 
-// Reset all votes (developer only)
+// Resetear todos los votos (solo desarrollador)
 app.post('/api/admin/reset-votes', requireDeveloper, async (req, res) => {
   try {
-    await pool.query('DELETE FROM votos');
+    await Voto.deleteMany({});
     res.json({ success: true, message: 'Todos los votos han sido eliminados.' });
   } catch (err) {
-    res.status(500).json({ error: 'Error resetting votes' });
+    res.status(500).json({ error: 'Error al resetear votos' });
   }
 });
 
-// Update configuration
+// Guardar/Actualizar configuración (solo desarrollador)
 app.put('/api/admin/config', requireDeveloper, async (req, res) => {
   try {
     const { clave, valor } = req.body;
-    await pool.query(`
-      INSERT INTO configuracion (clave, valor) VALUES ($1, $2) 
-      ON CONFLICT (clave) DO UPDATE SET valor = $2
-    `, [clave, valor]);
+    await Configuracion.updateOne(
+      { clave },
+      { $set: { valor } },
+      { upsert: true }
+    );
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error updating config' });
+    res.status(500).json({ error: 'Error al guardar la configuración' });
   }
 });
 
-// Manage candidates
+// Agregar candidato (solo desarrollador)
 app.post('/api/admin/candidates', requireDeveloper, async (req, res) => {
   try {
     const { nombre, partido, color, iniciales, imagen_url, orden } = req.body;
-    const result = await pool.query(
-      'INSERT INTO candidatos (nombre, partido, color, iniciales, imagen_url, orden) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [nombre, partido, color, iniciales, imagen_url || '', orden || 0]
-    );
-    res.json({ success: true, candidate: result.rows[0] });
+    const nextId = await getNextId('candidatoId');
+    const nuevo = await Candidato.create({
+      id: nextId,
+      nombre,
+      partido,
+      color,
+      iniciales,
+      imagen_url: imagen_url || '',
+      orden: orden || 0
+    });
+    res.json({ success: true, candidate: nuevo });
   } catch (err) {
-    res.status(500).json({ error: 'Error adding candidate' });
+    res.status(500).json({ error: 'Error al agregar candidato' });
   }
 });
 
+// Modificar candidato (solo desarrollador)
 app.put('/api/admin/candidates/:id', requireDeveloper, async (req, res) => {
   try {
     const { nombre, partido, color, iniciales, imagen_url, activo, orden } = req.body;
-    await pool.query(
-      'UPDATE candidatos SET nombre=$1, partido=$2, color=$3, iniciales=$4, imagen_url=$5, activo=$6, orden=$7 WHERE id=$8',
-      [nombre, partido, color, iniciales, imagen_url || '', activo, orden, req.params.id]
+    const result = await Candidato.updateOne(
+      { id: parseInt(req.params.id) },
+      {
+        $set: {
+          nombre,
+          partido,
+          color,
+          iniciales,
+          imagen_url: imagen_url || '',
+          activo,
+          orden
+        }
+      }
     );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Candidato no encontrado' });
+    }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error updating candidate' });
+    res.status(500).json({ error: 'Error al actualizar candidato' });
   }
 });
 
+// Eliminar candidato (solo desarrollador)
 app.delete('/api/admin/candidates/:id', requireDeveloper, async (req, res) => {
   try {
-    await pool.query('DELETE FROM candidatos WHERE id = $1', [req.params.id]);
+    const result = await Candidato.deleteOne({ id: parseInt(req.params.id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Candidato no encontrado' });
+    }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error deleting candidate' });
+    res.status(500).json({ error: 'Error al eliminar candidato' });
   }
 });
 
-// Add student
+// Obtener todos los candidatos para el panel de administración
+app.get('/api/admin/candidates', requireAdmin, async (req, res) => {
+  try {
+    const candidatos = await Candidato.find({}).sort({ orden: 1 });
+    res.json(candidatos);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener candidatos' });
+  }
+});
+
+// Agregar estudiante autorizado (solo desarrollador)
 app.post('/api/admin/students', requireDeveloper, async (req, res) => {
   try {
     const { cedula, nombre, seccion } = req.body;
-    const result = await pool.query(
-      'INSERT INTO cedulas_autorizadas (cedula, nombre, seccion) VALUES ($1, $2, $3) RETURNING *',
-      [cedula, nombre, seccion]
-    );
-    res.json({ success: true, student: result.rows[0] });
-  } catch (err) {
-    if (err.code === '23505') {
-      res.json({ success: false, message: 'Esta cédula ya existe en el sistema.' });
-    } else {
-      res.status(500).json({ error: 'Error adding student' });
+    
+    const existe = await CedulaAutorizada.findOne({ cedula });
+    if (existe) {
+      return res.json({ success: false, message: 'Esta cédula ya existe en el sistema.' });
     }
+
+    const nextId = await getNextId('studentId');
+    const nuevo = await CedulaAutorizada.create({
+      id: nextId,
+      cedula,
+      nombre,
+      seccion
+    });
+    res.json({ success: true, student: nuevo });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al agregar estudiante' });
   }
 });
 
-// Toggle student status
+// Activar/Desactivar estudiante (solo desarrollador)
 app.put('/api/admin/students/:id/toggle', requireDeveloper, async (req, res) => {
   try {
-    await pool.query('UPDATE cedulas_autorizadas SET activa = NOT activa WHERE id = $1', [req.params.id]);
+    const estudiante = await CedulaAutorizada.findOne({ id: parseInt(req.params.id) });
+    if (!estudiante) {
+      return res.status(404).json({ error: 'Estudiante no encontrado' });
+    }
+    estudiante.activa = !estudiante.activa;
+    await estudiante.save();
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error toggling student' });
+    res.status(500).json({ error: 'Error al activar/desactivar estudiante' });
   }
 });
 
-// Delete student
+// Eliminar estudiante y su voto asociado (solo desarrollador)
 app.delete('/api/admin/students/:id', requireDeveloper, async (req, res) => {
   try {
-    // First delete any votes by this student
-    await pool.query('DELETE FROM votos WHERE cedula_id = $1', [req.params.id]);
-    await pool.query('DELETE FROM cedulas_autorizadas WHERE id = $1', [req.params.id]);
+    const idNum = parseInt(req.params.id);
+    // Eliminar votos del estudiante primero
+    await Voto.deleteMany({ cedula_id: idNum });
+    const result = await CedulaAutorizada.deleteOne({ id: idNum });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Estudiante no encontrado' });
+    }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error deleting student' });
+    res.status(500).json({ error: 'Error al eliminar estudiante' });
   }
 });
 
-// Get all candidates (admin)
-app.get('/api/admin/candidates', requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM candidatos ORDER BY orden');
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching candidates' });
-  }
-});
-
-// Serve pages
+// ── Rutas de Páginas ─────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -643,10 +761,8 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// Start server
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🗳️  Voting server running on port ${PORT}`);
-    console.log(`📍 http://localhost:${PORT}`);
-  });
+// Arrancar servidor
+app.listen(PORT, () => {
+  console.log(`🗳️  Servidor de Votaciones corriendo en puerto ${PORT}`);
+  console.log(`📍 http://localhost:${PORT}`);
 });
