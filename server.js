@@ -134,14 +134,14 @@ async function inicializarDatosDefault() {
     // 2. Usuarios por defecto (admin y dev)
     const adminExiste = await AdminUser.findOne({ username: 'admin' });
     if (!adminExiste) {
-      const adminHash = await bcrypt.hash('admin2026', 10);
+      const adminHash = await bcrypt.hash('Tr1bunal$Votaciones2026!', 10);
       const nextId = await getNextId('adminUserId');
       await AdminUser.create({ id: nextId, username: 'admin', password_hash: adminHash, role: 'admin' });
     }
 
     const devExiste = await AdminUser.findOne({ username: 'developer' });
     if (!devExiste) {
-      const devHash = await bcrypt.hash('dev2026', 10);
+      const devHash = await bcrypt.hash('D3v#Campos$Votaciones2026!', 10);
       const nextId = await getNextId('adminUserId');
       await AdminUser.create({ id: nextId, username: 'developer', password_hash: devHash, role: 'developer' });
     }
