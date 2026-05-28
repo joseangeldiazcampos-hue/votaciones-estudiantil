@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
-const { authenticator } = require('otplib');
-authenticator.options = { window: 2 }; // Permite un margen de error de +/- 1 minuto (por si el reloj del celular no está exacto)
+const { verify } = require('otplib');
 const path = require('path');
 require('dotenv').config();
 
@@ -398,8 +397,8 @@ app.post('/api/admin/login', async (req, res) => {
 
     for (const user of users) {
       try {
-        const isValid = authenticator.verify({ token, secret: user.password_hash });
-        if (isValid) {
+        const { valid } = await verify({ token, secret: user.password_hash, window: 2 });
+        if (valid) {
           authenticatedUser = user;
           break;
         }
