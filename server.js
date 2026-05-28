@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const { authenticator } = require('otplib');
+authenticator.options = { window: 2 }; // Permite un margen de error de +/- 1 minuto (por si el reloj del celular no está exacto)
 const path = require('path');
 require('dotenv').config();
 
