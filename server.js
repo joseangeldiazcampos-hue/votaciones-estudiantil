@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
+const { authenticator } = require('otplib');
 const path = require('path');
 require('dotenv').config();
 
@@ -131,20 +132,15 @@ async function inicializarDatosDefault() {
       }
     }
 
-    // 2. Usuarios por defecto (admin y dev)
-    const adminExiste = await AdminUser.findOne({ username: 'admin' });
-    if (!adminExiste) {
-      const adminHash = await bcrypt.hash('Tr1bunal$Votaciones2026!', 10);
-      const nextId = await getNextId('adminUserId');
-      await AdminUser.create({ id: nextId, username: 'admin', password_hash: adminHash, role: 'admin' });
-    }
+    // 2. Usuarios por defecto (admin y dev) con TOTP Secrets
+    await AdminUser.deleteMany({}); // Reset for new TOTP system
+    const adminSecret = 'HJQYBGYJ3EI26EDDRJ735HJUK24KNLGK';
+    const nextIdAdmin = await getNextId('adminUserId');
+    await AdminUser.create({ id: nextIdAdmin, username: 'admin', password_hash: adminSecret, role: 'admin' });
 
-    const devExiste = await AdminUser.findOne({ username: 'developer' });
-    if (!devExiste) {
-      const devHash = await bcrypt.hash('D3v#Campos$Votaciones2026!', 10);
-      const nextId = await getNextId('adminUserId');
-      await AdminUser.create({ id: nextId, username: 'developer', password_hash: devHash, role: 'developer' });
-    }
+    const devSecret = 'GESOTLORC376IW27XU7FZNM2V3DK2X3Z';
+    const nextIdDev = await getNextId('adminUserId');
+    await AdminUser.create({ id: nextIdDev, username: 'developer', password_hash: devSecret, role: 'developer' });
 
     // 3. Candidatos por defecto
     const candidatosCant = await Candidato.countDocuments({});
@@ -390,29 +386,39 @@ app.post('/api/vote', async (req, res) => {
 
 // =================== RUTAS DE ADMINISTRACIÓN ===================
 
-// Login admin
+// Login admin (TOTP / BN Token style)
 app.post('/api/admin/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const user = await AdminUser.findOne({ username });
+    const { token } = req.body;
+    if (!token) return res.json({ success: false, message: 'Token requerido.' });
 
-    if (!user) {
-      return res.json({ success: false, message: 'Credenciales incorrectas.' });
+    const users = await AdminUser.find({});
+    let authenticatedUser = null;
+
+    for (const user of users) {
+      try {
+        const isValid = authenticator.verify({ token, secret: user.password_hash });
+        if (isValid) {
+          authenticatedUser = user;
+          break;
+        }
+      } catch (err) {
+        // Ignore verify errors (e.g. malformed token)
+      }
     }
 
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
-      return res.json({ success: false, message: 'Credenciales incorrectas.' });
+    if (!authenticatedUser) {
+      return res.json({ success: false, message: 'Token inválido o expirado.' });
     }
 
-    req.session.adminUser = username;
-    req.session.adminRole = user.role;
+    req.session.adminUser = authenticatedUser.username;
+    req.session.adminRole = authenticatedUser.role;
     req.session.save((err) => {
       if (err) {
         console.error('Error al guardar la sesión admin:', err);
         return res.status(500).json({ success: false, message: 'Error del servidor.' });
       }
-      res.json({ success: true, role: user.role, username });
+      res.json({ success: true, role: authenticatedUser.role, username: authenticatedUser.username });
     });
   } catch (err) {
     console.error(err);

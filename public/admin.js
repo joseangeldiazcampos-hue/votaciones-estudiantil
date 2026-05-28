@@ -6,20 +6,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const res = await fetch('/api/admin/session');
   const data = await res.json();
   if (data.loggedIn) { initDashboard(data.role); }
-  document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
+  document.getElementById('loginToken').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
 });
 
 async function adminLogin() {
-  const user = document.getElementById('loginUser').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  if (!user || !pass) return showLoginMsg('Complete todos los campos.', 'error');
+  const token = document.getElementById('loginToken').value.trim();
+  if (!token) return showLoginMsg('Ingrese su Token de Seguridad.', 'error');
 
   const btn = document.getElementById('btnLogin');
   btn.classList.add('loading');
   try {
     const res = await fetch('/api/admin/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: user, password: pass })
+      body: JSON.stringify({ token })
     });
     const data = await res.json();
     if (data.success) { initDashboard(data.role); }
